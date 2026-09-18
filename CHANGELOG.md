@@ -3,6 +3,19 @@
 All notable changes to this plugin are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.0.2
+
+Onboarding fixes — the plugin worked, but a fresh user could not discover how.
+
+- **The default hotkey is now actually registered.** `addCommand` ships
+  `hotkeys: [{Alt, Q}]`, so `Alt+Q` works on a fresh install. Until now the
+  README and changelog claimed a default hotkey that the code never created —
+  the command started unbound and only worked after a manual binding.
+- **The settings tab now teaches usage.** A highlighted block above the mode
+  dropdown explains that `Alt+Q` (or the palette command) toggles the pin, and
+  that rebinding lives in Settings → Hotkeys. Previously the page was a single
+  unlabelled dropdown (`styles.css` §7).
+
 ## 1.0.1
 
 Submission-readiness fixes. No change to what the plugin does.
