@@ -24,6 +24,8 @@ plugin adds a single toggle that pins whichever one you actually use.
 
 Pick one in Settings; switching modes is the whole setting.
 
+![Top toolbar pinned while reading](docs/shot-top-pinned.png)
+
 ## Why
 
 Editing Toolbar's bottom bar is genuinely useful on a desktop with a large
