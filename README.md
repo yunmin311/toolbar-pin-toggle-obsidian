@@ -56,6 +56,16 @@ into `<vault>/.obsidian/plugins/toolbar-pin-toggle/`, then enable it.
 **Beta builds:** add `yunmin311/toolbar-pin-toggle-obsidian` to
 [BRAT](https://github.com/TfTHacker/obsidian42-brat).
 
+## Language
+
+The settings page, the command name and every notice are available in
+**Chinese and English**. Pick a language at the top of the settings page:
+`Auto` follows Obsidian's own language, or pin it to `简体中文` / `English`
+explicitly.
+
+Adding another language is a pure data change — an extra entry in
+`locales.js` — with no build step involved.
+
 ## Privacy
 
 No network access. No telemetry. No accounts. It toggles a CSS class on the

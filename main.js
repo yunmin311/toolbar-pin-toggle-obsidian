@@ -15,8 +15,10 @@
 "use strict";
 
 const { Plugin, PluginSettingTab, Setting, Notice } = require("obsidian");
+const { bindI18n } = require("./i18n");
+const { renderSponsor } = require("./sponsor");
 
-const DEFAULTS = { mode: "fixed", topPinned: false };
+const DEFAULTS = { mode: "fixed", topPinned: false, language: "auto" };
 
 /** The command we delegate the "fixed" mode to; its existence is also how we
  *  detect whether the required companion plugin is present. */
@@ -26,11 +28,17 @@ const ETB_PLUGIN_NAME = "Editing Toolbar";
 class ToolbarPinTogglePlugin extends Plugin {
   async onload() {
     this.settings = Object.assign({}, DEFAULTS, await this.loadData());
+    bindI18n(this);
     this.applyTopPinned(this.settings.topPinned);
+
+    const t = (k, v) => this.i18n.t(k, v);
 
     this.addCommand({
       id: "toggle-pin",
-      name: "Toggle toolbar pin",
+      // 命令名会随界面语言变化：Obsidian 每次打开命令面板都会重读注册表，
+      // 而切换语言后我们重建设置页；命令名以加载时的语言为准，
+      // 想立刻生效可重新加载插件（设置页里有说明）。
+      name: t("command.toggle"),
       // Ship the default binding the README has always advertised. Without
       // this field the command exists but has NO hotkey on a fresh install,
       // so "Default hotkey: Alt+Q" was only true for users who bound it by
@@ -46,7 +54,9 @@ class ToolbarPinTogglePlugin extends Plugin {
           await this.saveData(this.settings);
           this.applyTopPinned(this.settings.topPinned);
           new Notice(
-            `Top toolbar pinned: ${this.settings.topPinned ? "on" : "off"}`
+            this.i18n.t(
+              this.settings.topPinned ? "notice.pinned.on" : "notice.pinned.off"
+            )
           );
         } else {
           this.app.commands.executeCommandById(ETB_COMMAND);
@@ -86,11 +96,7 @@ class ToolbarPinTogglePlugin extends Plugin {
   }
 
   warnMissingEditingToolbar() {
-    new Notice(
-      `Toolbar Pin Toggle needs the "${ETB_PLUGIN_NAME}" plugin — install and ` +
-        `enable it first (Settings → Community plugins).`,
-      8000
-    );
+    new Notice(this.i18n.t("notice.missing", { name: ETB_PLUGIN_NAME }), 8000);
   }
 
   applyTopPinned(pinned) {
@@ -110,21 +116,35 @@ class ToolbarPinToggleSettingTab extends PluginSettingTab {
 
   display() {
     const { containerEl } = this;
+    const t = (k, v) => this.plugin.i18n.t(k, v);
     containerEl.empty();
     containerEl.createEl("h3", { text: "Toolbar Pin Toggle" });
+
+    // 语言放在最上面：它是这一页里唯一「改变这一页本身」的选项。
+    new Setting(containerEl)
+      .setName(t("settings.language.name"))
+      .setDesc(t("settings.language.desc"))
+      .addDropdown((drop) => {
+        for (const opt of this.plugin.i18n.options) {
+          drop.addOption(opt.id, opt.label);
+        }
+        drop.setValue(this.plugin.settings.language || "auto").onChange(
+          async (value) => {
+            this.plugin.settings.language = value;
+            await this.plugin.saveData(this.plugin.settings);
+            this.display();
+          }
+        );
+      });
 
     // Stated up front rather than buried in the README: without the companion
     // plugin every option on this page is inert.
     if (!this.plugin.hasEditingToolbar()) {
       containerEl.createDiv({ cls: "tpt-missing-dependency" }, (el) => {
         el.createEl("strong", {
-          text: `"${ETB_PLUGIN_NAME}" is required`,
+          text: t("settings.missing.title", { name: ETB_PLUGIN_NAME }),
         });
-        el.createEl("div", {
-          text:
-            "Both pinning modes act on toolbars that plugin provides. " +
-            "Install and enable it, then reload Obsidian.",
-        });
+        el.createEl("div", { text: t("settings.missing.body") });
       });
     }
 
@@ -133,30 +153,23 @@ class ToolbarPinToggleSettingTab extends PluginSettingTab {
     // dropdown never told anyone that Alt+Q is the toggle, or that rebinding
     // lives in Settings → Hotkeys rather than here.
     containerEl.createDiv({ cls: "tpt-usage" }, (el) => {
-      const intro = el.createEl("p");
-      intro.appendText("Press ");
-      intro.createEl("kbd", { text: "Alt+Q" });
-      intro.appendText(
-        ' — or run "Toggle toolbar pin" from the command palette — to pin or ' +
-          "unpin the toolbar chosen below."
-      );
-      el.createEl("p", {
-        text:
-          "Alt+Q is only the default. To rebind it, go to Settings → Hotkeys " +
-          'and search for "Toolbar Pin Toggle".',
-      });
+      // 文案里的 {key} 要用 <kbd> 包起来，所以拿一个不可能出现的哨兵值
+      // 切出前后两段，再在中间插元素 —— 直接写死 "Press " 就没法翻译了。
+      const parts = t("settings.usage.intro", { key: "\u0000" }).split("\u0000");
+      const p1 = el.createEl("p");
+      p1.appendText(parts[0] || "");
+      p1.createEl("kbd", { text: "Alt+Q" });
+      p1.appendText(parts[1] || "");
+      el.createEl("p", { text: t("settings.usage.rebind") });
     });
 
     new Setting(containerEl)
-      .setName("Pin mode")
-      .setDesc(
-        "Fixed toolbar: toggles Editing Toolbar's fixed bottom toolbar. " +
-          "Top toolbar: keeps the top toolbar visible instead of hiding itself."
-      )
+      .setName(t("settings.mode.name"))
+      .setDesc(t("settings.mode.desc"))
       .addDropdown((drop) =>
         drop
-          .addOption("fixed", "Fixed bottom toolbar")
-          .addOption("top", "Top toolbar")
+          .addOption("fixed", t("settings.mode.opt.fixed"))
+          .addOption("top", t("settings.mode.opt.top"))
           .setValue(this.plugin.settings.mode)
           .onChange(async (value) => {
             if (value === "fixed" && this.plugin.settings.topPinned) {
@@ -167,10 +180,58 @@ class ToolbarPinToggleSettingTab extends PluginSettingTab {
             this.plugin.settings.mode = value;
             await this.plugin.saveData(this.plugin.settings);
             new Notice(
-              `Pin mode: ${value === "top" ? "top toolbar" : "fixed bottom toolbar"}`
+              t(value === "top" ? "notice.mode.top" : "notice.mode.fixed")
             );
           })
       );
+
+    new Setting(containerEl)
+      .setName(t("settings.dep.name"))
+      .setDesc(
+        this.plugin.hasEditingToolbar()
+          ? t("settings.dep.present", { name: ETB_PLUGIN_NAME })
+          : t("settings.dep.absent", { name: ETB_PLUGIN_NAME })
+      );
+
+    new Setting(containerEl)
+      .setName(t("settings.reset.name"))
+      .setDesc(t("settings.reset.desc"))
+      .addButton((b) =>
+        b.setButtonText(t("common.reset")).onClick(async () => {
+          // 语言是「这一页本身」的偏好，恢复默认时刻意保留，
+          // 否则中文用户点一下按钮界面就变成英文了。
+          const keepLang = this.plugin.settings.language;
+          this.plugin.settings = Object.assign({}, DEFAULTS, {
+            language: keepLang,
+          });
+          await this.plugin.saveData(this.plugin.settings);
+          this.plugin.applyTopPinned(false);
+          new Notice(t("common.reset.done"));
+          this.display();
+        })
+      );
+
+    this.renderFooter(containerEl, t);
+  }
+
+  /** 版本 + 仓库 + 赞助。四个插件共用同一套结构与文案。 */
+  renderFooter(containerEl, t) {
+    const wrap = containerEl.createDiv({ cls: "tpt-about" });
+
+    const meta = wrap.createDiv({ cls: "tpt-about-meta" });
+    const version = this.plugin.manifest.version;
+    meta.createSpan({
+      text: `${t("meta.version")} ${version}`,
+    });
+    meta.createSpan({ cls: "tpt-about-sep", text: "·" });
+    const repo = meta.createEl("a", {
+      text: this.plugin.manifest.id,
+      href: `https://github.com/yunmin311/${this.plugin.manifest.id}-obsidian`,
+    });
+    repo.setAttr("target", "_blank");
+    repo.setAttr("rel", "noopener");
+
+    renderSponsor(wrap, t);
   }
 }
 

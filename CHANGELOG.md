@@ -3,6 +3,19 @@
 All notable changes to this plugin are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.1.0
+
+- **Bilingual interface.** Settings page, the command name and every notice now
+  ship in Chinese and English, with an in-settings language selector
+  (`Auto` / `简体中文` / `English`). `Auto` follows Obsidian's own language.
+  Adding a further language is a pure data change in `locales.js`.
+- **Dependency status is now visible in settings**, so the requirement is a
+  readable state rather than a warning you only see when something is wrong.
+- Settings page footer with version and repository link, plus a sponsorship
+  block listing international and China-friendly options.
+- Restore-defaults button, which keeps the language choice (that preference is
+  about the page itself).
+
 ## 1.0.2
 
 Onboarding fixes — the plugin worked, but a fresh user could not discover how.
