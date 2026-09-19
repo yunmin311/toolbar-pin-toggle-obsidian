@@ -15,9 +15,249 @@
 "use strict";
 
 const { Plugin, PluginSettingTab, Setting, Notice } = require("obsidian");
-const { bindI18n } = require("./i18n");
-const { renderSponsor } = require("./sponsor");
 
+
+/* ============================================================
+   【内联模块 · 自动生成，请勿手改这一段】
+   ------------------------------------------------------------
+   以下三段来自仓库里的 locales.js / i18n.js / sponsor.js，
+   由打包脚本 bundle-inline.js 拼接到此（脚本在 _scratch/_i18n/）。
+
+   为什么不写 require("./locales")：
+   Obsidian 注入的 require 是白名单函数，只认 obsidian / @codemirror /
+   @lezer 与 Electron 的 window.require，**不解析插件的相对路径** ——
+   require("./x") 会返回 undefined，插件直接加载失败。
+
+   改动流程：改源文件 → node bundle-inline.js <插件目录> → 跑 sync-plugins.ps1
+   ============================================================ */
+
+/* ---------- 来自 locales.js ---------- */
+/* Toolbar Pin Toggle —— 界面字符串表。
+   只放本插件专属的键；语言下拉、赞助区块、通用按钮在 main.js 里另有公共表。 */
+
+/* 公共键 —— 四个插件完全一致，改动请四处同步（i18n.js 里也有同样的说明）。 */
+const COMMON = {
+  zh: {
+    "settings.language.name": "界面语言",
+    "settings.language.desc":
+      "设置页、命令与提示的显示语言。「跟随 Obsidian」会随界面语言自动切换。",
+    "sponsor.title": "赞助支持",
+    "sponsor.body":
+      "这些插件都是独立开发并免费开源的，没有任何商业绑定。如果它确实省下了时间，可以通过 GitHub Sponsors 支持后续维护。",
+    "meta.version": "版本",
+    "meta.repository": "仓库",
+    "common.reset": "恢复默认",
+    "common.reset.done": "已恢复默认设置",
+    "common.clear": "清除",
+  },
+  en: {
+    "settings.language.name": "Interface language",
+    "settings.language.desc":
+      'Language for this settings page, commands and notices. "Follow Obsidian" tracks the app language.',
+    "sponsor.title": "Sponsorship",
+    "sponsor.body":
+      "These plugins are built independently and released free and open-source, with no commercial tie-in. If one of them saves you time, you can support ongoing maintenance via GitHub Sponsors.",
+    "meta.version": "Version",
+    "meta.repository": "Repository",
+    "common.reset": "Restore defaults",
+    "common.reset.done": "Settings restored to defaults",
+    "common.clear": "Clear",
+  },
+};
+
+/* 本插件专属键。 */
+const OWN = {
+  zh: {
+    "meta.desc": "Editing Toolbar 的常驻/固定双模式开关。",
+
+    "command.toggle": "切换工具栏常驻",
+
+    "notice.missing": "「{name}」插件未启用 —— 请先安装并启用它（设置 → 第三方插件）。",
+    "notice.mode.fixed": "常驻模式：固定底部工具栏",
+    "notice.mode.top": "常驻模式：顶部工具栏常驻",
+    "notice.pinned.on": "顶部工具栏：常驻",
+    "notice.pinned.off": "顶部工具栏：自动隐藏",
+
+    "settings.missing.title": "「{name}」是必需依赖",
+    "settings.missing.body":
+      "两种常驻模式作用的工具栏都由该插件提供。请先安装并启用它，然后重新加载 Obsidian。",
+
+    "settings.usage.intro":
+      "按 {key}（或从命令面板运行「切换工具栏常驻」）即可常驻 / 取消常驻下方选择的工具栏。",
+    "settings.usage.rebind":
+      "Alt+Q 只是默认值。要改键，去「设置 → 快捷键」搜索「切换工具栏常驻」。",
+
+    "settings.mode.name": "常驻模式",
+    "settings.mode.desc":
+      "固定底部工具栏：切换 Editing Toolbar 的底部固定栏。顶部工具栏：让顶部工具栏保持可见，而不是自动收起。",
+    "settings.mode.opt.fixed": "固定底部工具栏",
+    "settings.mode.opt.top": "顶部工具栏",
+
+    "settings.dep.name": "依赖状态",
+    "settings.dep.present": "已安装「{name}」，两种模式都可用。",
+    "settings.dep.absent": "未检测到「{name}」，本插件的命令暂时不会生效。",
+
+    "settings.reset.name": "恢复默认设置",
+    "settings.reset.desc": "把常驻模式与常驻状态清回初始值。",
+  },
+
+  en: {
+    "meta.desc": "One toggle, two pinning modes, for the Editing Toolbar plugin.",
+
+    "command.toggle": "Toggle toolbar pin",
+
+    "notice.missing":
+      'Toolbar Pin Toggle needs the "{name}" plugin — install and enable it first (Settings → Community plugins).',
+    "notice.mode.fixed": "Pin mode: fixed bottom toolbar",
+    "notice.mode.top": "Pin mode: top toolbar",
+    "notice.pinned.on": "Top toolbar pinned: on",
+    "notice.pinned.off": "Top toolbar pinned: off",
+
+    "settings.missing.title": '"{name}" is required',
+    "settings.missing.body":
+      "Both pinning modes act on toolbars that plugin provides. Install and enable it, then reload Obsidian.",
+
+    "settings.usage.intro":
+      'Press {key} — or run "Toggle toolbar pin" from the command palette — to pin or unpin the toolbar chosen below.',
+    "settings.usage.rebind":
+      'Alt+Q is only the default. To rebind it, go to Settings → Hotkeys and search for "Toggle toolbar pin".',
+
+    "settings.mode.name": "Pin mode",
+    "settings.mode.desc":
+      "Fixed toolbar: toggles Editing Toolbar's fixed bottom toolbar. Top toolbar: keeps the top toolbar visible instead of hiding itself.",
+    "settings.mode.opt.fixed": "Fixed bottom toolbar",
+    "settings.mode.opt.top": "Top toolbar",
+
+    "settings.dep.name": "Dependency",
+    "settings.dep.present": '"{name}" is installed — both modes are available.',
+    "settings.dep.absent": '"{name}" was not detected — this plugin\'s command does nothing for now.',
+
+    "settings.reset.name": "Restore defaults",
+    "settings.reset.desc": "Reset the pin mode and the pinned state to their initial values.",
+  },
+};
+const LOCALES = buildLocales();
+/** 把公共表与本插件表合并；插件缺某语言时回落到英语。 */
+function buildLocales() {
+  const out = {};
+  const langs = new Set([...Object.keys(COMMON), ...Object.keys(OWN)]);
+  for (const lang of langs) {
+    out[lang] = Object.assign(
+      {},
+      COMMON[lang] || COMMON.en,
+      OWN[lang] || OWN.en
+    );
+  }
+  return out;
+}
+
+/* ---------- 来自 i18n.js ---------- */
+/* i18n —— 多语言运行时。
+
+   为什么不用 Obsidian 的 moment.locale()：moment 只管日期格式化，不提供
+   界面字符串表；而且用户在设置页切语言要即时生效，moment 的切换要等界面重建。
+
+   设计约束：
+   - t() 永不抛异常：缺键回落到英语，英语也缺就返回键名本身。
+     设置页少一行字，好过整页白屏。
+   - 支持 {name} 占位符；参数没给就原样保留，方便定位漏传。
+   - 界面字符串全部集中在 locales.js，main.js 里不留字面量。
+
+   这份文件在三个插件里是同一份（各自复制一份，因为插件是独立仓库、
+   不能互相 require）。改动请三处同步。 */
+
+/** 设置页语言下拉框的定义顺序。 */
+const LANGUAGE_OPTIONS = [
+  { id: "auto", label: "跟随 Obsidian / Follow Obsidian" },
+  { id: "zh", label: "简体中文" },
+  { id: "en", label: "English" },
+];
+
+/**
+ * 把偏好解析成实际语言 id。
+ * "auto" 时读 Obsidian 的界面语言；任何异常都回落到英语 ——
+ * 语言探测失败不值得让设置页打不开。
+ */
+function resolveLanguage(pref) {
+  if (pref && pref !== "auto" && LOCALES[pref]) return pref;
+  try {
+    const raw =
+      window.localStorage.getItem("language") ||
+      document.documentElement.lang ||
+      "";
+    const short = String(raw).toLowerCase().slice(0, 2);
+    if (short && LOCALES[short]) return short;
+  } catch (e) {
+    /* 忽略：回落英语 */
+  }
+  return "en";
+}
+
+function translate(lang, key, vars) {
+  const table = LOCALES[lang] || LOCALES.en;
+  let s = table[key];
+  if (s === undefined) {
+    const fb = LOCALES.en[key];
+    s = fb === undefined ? key : fb;
+  }
+  if (!vars) return s;
+  return String(s).replace(/\{(\w+)\}/g, (m, name) =>
+    vars[name] === undefined ? m : String(vars[name])
+  );
+}
+
+/** 绑定插件实例：读 settings.language，暴露 t()。 */
+function bindI18n(plugin) {
+  const current = () =>
+    resolveLanguage(plugin && plugin.settings ? plugin.settings.language : "auto");
+
+  plugin.i18n = {
+    get resolved() {
+      return current();
+    },
+    t(key, vars) {
+      return translate(current(), key, vars);
+    },
+    options: LANGUAGE_OPTIONS,
+  };
+  return plugin.i18n;
+}
+
+/* ---------- 来自 sponsor.js ---------- */
+/* 赞助区块。
+ *
+ * 刻意做成一个独立小节而不是塞进说明文字里：设置页是用户唯一会认真读的
+ * 地方，藏起来等于没有。区块只渲染链接，不引任何外部脚本或图片 ——
+ * 插件必须保持零网络请求，否则会在社区市场审核时被质疑。
+ *
+ * 为什么只有 GitHub Sponsors 一条：
+ *   最初国内 / 海外分列（爱发电 + Ko-fi），但 qy 决定统一走 GitHub ——
+ *   单一入口便于维护，也避免在插件里出现多个可能失效/需要实名认证的平台。
+ *   保留 SPONSORS 数组结构（而不是塌成一个字符串），是为了将来真要加
+ *   第二条时改数据即可，不用动渲染代码。
+ */
+
+const SPONSORS = [
+  { label: "GitHub Sponsors", url: "https://github.com/sponsors/yunmin311" },
+];
+
+function linkRow(parent, label, url) {
+  const a = parent.createEl("a", { cls: "sp-link", text: label, href: url });
+  a.setAttr("target", "_blank");
+  a.setAttr("rel", "noopener");
+}
+
+/** 在 parent 里渲染赞助区块。t 是当前语言的取词函数。 */
+function renderSponsor(parent, t) {
+  const box = parent.createDiv({ cls: "sp-box" });
+  box.createDiv({ cls: "sp-title", text: t("sponsor.title") });
+  box.createDiv({ cls: "sp-body", text: t("sponsor.body") });
+
+  const row = box.createDiv({ cls: "sp-row" });
+  for (const l of SPONSORS) linkRow(row, l.label, l.url);
+}
+
+/* ======================== 内联模块结束 ======================== */
 const DEFAULTS = { mode: "fixed", topPinned: false, language: "auto" };
 
 /** The command we delegate the "fixed" mode to; its existence is also how we
